@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { AiFillEyeInvisible, AiFillEye } from "react-icons/ai";
-import { Link } from "react-router-dom";
-
+import { Link, useNavigate } from "react-router-dom";
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "../firebase";
+import { toast } from "react-toastify";
+ 
 // Components -->
 import OAuth from "../components/OAuth";
 
@@ -13,12 +17,36 @@ export default function SignUp() {
     password: "",
   });
   const {name, email, password} = formData;
+  const navigate = useNavigate();
 
   function onChange(e) {
     setFormData((prevState) => ({
       ...prevState,
       [e.target.id] : e.target.value,
     }));
+  };
+
+  async function onSubmit(e) {
+    e.preventDefault();
+
+    try {
+      const auth = getAuth();
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+      updateProfile(auth.currentUser, {
+        displayName: name
+      });
+      const user = userCredential.user;
+      const formDataCopy = { ...formData };
+      delete formDataCopy.password;
+      formDataCopy.timestamp = serverTimestamp();
+
+      await setDoc(doc(db, "users", user.uid), formDataCopy);
+      toast.success("Sign Up Successfully");
+      navigate("/");
+    } catch (error) {
+      toast.error("Something went wrong please try again later.");
+    }
   };
 
   return (
@@ -29,13 +57,13 @@ export default function SignUp() {
           <img className="w-full rounded-2xl" src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8OHx8a2V5fGVufDB8fDB8fA%3D%3D&auto=format&fit=crop&w=800&q=60" alt="key" />
         </div>
         <div className="w-full md:w-[67%] lg:w-[40%] lg:ml-20">
-          <form>
+          <form onSubmit={onSubmit}>
             <input className="mb-6 w-full px-4 py-2 text-md text-gray-700 bg-white border-gray-300 rounded transition ease-in-out" type="text" placeholder="Full name" id="name" value={name} onChange={onChange} />
             <input className="mb-6 w-full px-4 py-2 text-md text-gray-700 bg-white border-gray-300 rounded transition ease-in-out" type="email" placeholder="Email address" id="email" value={email} onChange={onChange} />
             <div className="relative mb-6">
               <input className="w-full px-4 py-2 text-md text-gray-700 bg-white border-gray-300 rounded transition ease-in-out" type={showPassword ? "text" : "password"} placeholder="Password" id="password" value={password} onChange={onChange} />
               {showPassword ? (
-                <AiFillEyeInvisible className="absolute right-3 top-3 text-md cursor-pointer" onClick={() => setShowPassword((prevState) => !prevState)} />
+                <AiFillEyeInvisible className="absolute right-3 top-3 text-[18px] cursor-pointer" onClick={() => setShowPassword((prevState) => !prevState)} />
               ) : (
                 <AiFillEye className="absolute right-3 top-3 text-[18px] cursor-pointer" onClick={() => setShowPassword((prevState) => !prevState)} />
               )}
